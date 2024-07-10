@@ -1,0 +1,634 @@
+---
+title: "Paper: What Students Prefer to Do and What They Claim They Can Do Well: Interests Differentiation and Perceived Skills "
+output: html_document
+---
+
+# ABOUT THE SCRIPT
+- This a script containing code about the results section presented in the paper "What Students Prefer to Do and What They Claim They Can Do Well: Interests Differentiation and Perceived Skills" (submitted). Code used for data cleaning procedures is not presented in this script.
+
+**18-REST2 items in Portuguese(BR) and English:**
+
+-   r1 Operar máquinas para usinagem de peças./To operate machines.
+-   r2 Fazer análises e experimentos em laboratórios./To perform data analyses and experiments in laboratories.
+-   r3 Cantar em um coral./To sing in a choir.
+-   r4 Estar disponível para ajudar as pessoas./To be available to help people.
+-   r11 Negociar com clientes./To negotiate with clients.
+-   r18 Arquivar documentos e notas importantes./To organize important documents and notes.
+-   r7 Executar manutenções em máquinas e equipamentos./To perform maintanance in machines and other equipment.
+-   r8 Explicar fenômenos físicos da natureza./To explain physics and nature phenomena.
+-   r9 Apresentar números artísticos para uma plateia./To present artistic pieces to a crowd.
+-   r16 Oferecer orientação às pessoas, grupos ou população sobre saúde e bem-estar./To offer well-being and health guidance for people, groups or the population. 
+-   r17 Comercializar produtos e serviços./To sell products and services.
+-   r22 Fazer a contabilidade de uma empresa./To do accounting in a business. 
+-   r27 Projetar o sistema elétrico de uma casa./To think about the eletrical system of a house.
+-   r14 Ler artigos e livros científicos./To read scientific papers and books.
+-   r15 Participar da criação de cenários teatrais./To participate in the creation of theatre stages.
+-   r24 Prestar serviços sociais em comunidades e bairros./To perform social services in communities.
+-   r29 Convencer pessoas a comprar um produto./To convince people to buy a product.
+-   r26 Inserir informações em uma base de dados./To insert information in a database.
+
+```{r pacotes_db, echo= FALSE}
+# LOAD PACKAGES -----------------------------------------------------------------
+library(tidyverse)
+library(psych)
+library(holland)
+library(stats)
+library(lsr)
+library(rstatix)
+library(corrplot) 
+
+```
+
+## CALCULATING SCORES
+```{r}
+# LOAD DATA -----------------------------------------------------------------
+# For example purposes, the dataset object will be named as dt_hol because the dataset is not available publicly 
+# More information about the dataset can accessed on the paper
+dt_hol <- readRDS("data/dt_hol.RDS")
+```
+
+- *RIASEC scores* were calculated as average scores. These scores are identified with the prefix holl_ + RIASEC letter.
+
+- *Relative differentiation scores* were calculated using the following formula: Reference interest score -(average score of other five interests scores). These scores are identified with the prefix riasec_rlv OR the suffix _rlv3. 
+
+```{r}
+# AVERAGE RIASEC SCORES ------------------------------------------------------
+# 18-REST2 MEASURE (Martins et al., 2024)
+key_list <- list(holl_R = c("r1", "r7", "r27"),
+                 holl_I = c("r2", "r8", "r14"),
+                 holl_A = c("r3", "r9", "r15"),
+                 holl_S = c("r4", "r16", "r24"),
+                 holl_E = c("r11", "r17", "r29"),
+                 holl_C = c("r18", "r22", "r26")
+                 )
+
+holl_scores <- psych::scoreItems(key_list, 
+                          dt_hol, 
+                          totals = FALSE,
+                          missing=FALSE, 
+                          min = 1, 
+                          max = 5, 
+                          digits = 2)
+
+dt_hol <- cbind(dt_hol, holl_scores$scores)
+
+```
+
+```{r echo= FALSE, eval=FALSE}
+# HOLLAND PACKAGE SCORES ------------------------------------------------------
+
+# Overall Differentiation (dif7) and Elevation scores
+
+# Add empty differentiation and elevation variables in the dt_hol  
+
+dt_hol$holland_Difer7<-NA
+dt_hol$holland_Elev <-NA
+
+# Calculate scores based on the six RIASEC scores previously calculated 
+# Columns 10 to 15 represent RIASEC scores
+
+for (i in 1:nrow(dt_hol)) {
+ dt_hol[i,16]<- dif_7_holland(as.numeric(dt_hol[i,10:15]),ind="DI7")
+}
+
+dt_hol$holland_Elev<-apply(dt_hol[,10:15],1, mean)
+
+```
+
+```{r echo= FALSE, eval=FALSE}
+# SINGLE-INTEREST  PACKAGE SCORES ----------------------------------------------------------------
+
+# Formula: Reference interest score -(average score of other five interests scores)
+v_holl_r <- c("holl_I", "holl_A", "holl_S", "holl_E", "holl_C")
+v_holl_i <- c("holl_R", "holl_A", "holl_S", "holl_E", "holl_C")
+v_holl_a <- c("holl_R", "holl_I", "holl_S", "holl_E", "holl_C")
+v_holl_s <- c("holl_R", "holl_I", "holl_A", "holl_E", "holl_C")
+v_holl_e <- c("holl_R", "holl_I", "holl_A", "holl_S", "holl_C")
+v_holl_c <- c("holl_R", "holl_I", "holl_A", "holl_S", "holl_E")
+
+# R
+dt_hol_final  <- dt_hol_final  %>% 
+ mutate(holl_R_rlv = rowSums(.[, v_holl_r])
+                      ) %>% 
+ mutate(holl_R_rlv2 = holl_R_rlv/5) %>% 
+ mutate(holl_R_rlv3 = holl_R - holl_R_rlv2)
+
+# I
+dt_hol_final  <- dt_hol_final  %>% 
+ mutate(holl_I_rlv = rowSums(.[, v_holl_i])
+                      ) %>% 
+ mutate(holl_I_rlv2 = holl_I_rlv/5) %>% 
+ mutate(holl_I_rlv3 = holl_I - holl_I_rlv2)
+
+# A
+dt_hol_final <- dt_hol_final  %>% 
+ mutate(holl_A_rlv = rowSums(.[, v_holl_a])
+                      ) %>% 
+ mutate(holl_A_rlv2 = holl_A_rlv/5) %>% 
+ mutate(holl_A_rlv3 = holl_A - holl_A_rlv2)
+
+# S
+dt_hol_final <- dt_hol_final  %>% 
+ mutate(holl_S_rlv = rowSums(.[, v_holl_s])
+                      ) %>% 
+ mutate(holl_S_rlv2 = holl_S_rlv/5) %>% 
+ mutate(holl_S_rlv3 = holl_S - holl_S_rlv2)
+
+# E
+dt_hol_final <- dt_hol_final  %>% 
+ mutate(holl_E_rlv = rowSums(.[, v_holl_e])
+                      ) %>% 
+ mutate(holl_E_rlv2 = holl_E_rlv/5) %>% 
+ mutate(holl_E_rlv3 = holl_E - holl_E_rlv2)
+
+# C
+dt_hol_final <- dt_hol_final  %>% 
+ mutate(holl_C_rlv = rowSums(.[, v_holl_c])
+                      ) %>% 
+ mutate(holl_C_rlv2 = holl_C_rlv/5) %>% 
+ mutate(holl_C_rlv3 = holl_C - holl_C_rlv2)
+
+```
+
+## RESULTS SECTION
+
+### Interest elevation and overall differentiation across time 
+
+#### Welch's t-tests - Gender groups
+- Welch's t-test of interest elevation and overall differentiation comparing *gender groups*
+- Comparisons were performed in the following order: F-M
+
+```{r echo=FALSE, warning=FALSE, error=FALSE}
+t.test(holland_Difer7 ~ gender, data = dt_hol)
+cohensD(holland_Difer7 ~ gender, data = dt_hol) 
+
+t.test(holland_Elev ~ gender, data = dt_hol)
+cohensD(holland_Elev ~ gender, data = dt_hol) 
+
+```
+
+#### Welch's t-tests - School grades and gender groups
+- Welch's t-test of interest elevation and overall differentiation comparing *school grades and gender groups*
+- Comparisons were performed in the following order: F-M
+
+```{r echo=FALSE, warning=FALSE, error=FALSE}
+# SEPARATE DATASET USING SCHOOL YEAR 
+dt_hol_final_5 <- dt_hol %>% 
+ filter(serie == "5")
+
+dt_hol_final_9 <- dt_hol %>% 
+ filter(serie == "9")
+
+dt_hol_final_12 <- dt_hol %>% 
+ filter(serie == "12")
+
+# T TESTS AND COHEN'S D FOR GENDER WITHIN EACH SCHOOL GRADE
+
+#  5th grade
+t.test(holland_Difer7 ~ gender, data = dt_hol_final_5)
+cohensD(holland_Difer7 ~ gender, data = dt_hol_final_5) # 0.1475862
+t.test(holland_Elev ~ gender, data = dt_hol_final_5)
+cohensD(holland_Elev ~ gender, data = dt_hol_final_5) # 0.1500663
+
+#  9th grade
+t.test(holland_Difer7 ~ gender, data = dt_hol_final_9)
+cohensD(holland_Difer7 ~ gender, data = dt_hol_final_9) # 0.1475862
+t.test(holland_Elev ~ gender, data = dt_hol_final_9)
+cohensD(holland_Elev ~ gender, data = dt_hol_final_9) # 0.1500663
+
+#  12th grade
+t.test(holland_Difer7 ~ gender, data = dt_hol_final_12)
+cohensD(holland_Difer7 ~ gender, data = dt_hol_final_12) # 0.341822
+t.test(holland_Elev ~ gender, data = dt_hol_final_12)
+cohensD(holland_Elev ~ gender, data = dt_hol_final_12) # 0.04378867
+
+```
+
+#### ANOVA - School grandes in each gender group
+- ANOVA  of interest elevation and overall differentiation comparing *school grades in each gender group*
+```{r}
+# SEPARATE DATASET USING GENDER GROUPS
+dt_hol_final_f <- dt_hol %>% 
+ filter(gender=="F")
+
+dt_hol_final_m <- dt_hol %>% 
+ filter(gender=="M")
+```
+
+```{r}
+## INTEREST ELEVATION 
+
+# ANOVA - Girls
+dt_hol_final_f %>% 
+anova_test(holland_Elev ~ as.factor(school_grade))
+anova_summary(elev_girls_tab)
+
+## Double check
+elev_girls <- aov(holland_Elev  ~ as.factor(school_grade), dt_hol_final_f)
+anova_summary(elev_girls)
+
+# ANOVA - Boys
+dt_hol_final_m %>% 
+anova_test(holland_Elev ~ as.factor(school_grade))
+
+## Double check
+elev_boys <- aov(holland_Elev ~ as.factor(school_grade), dt_hol_final_m)
+anova_summary(elev_boys)
+
+```
+
+### Single-interest differentiation across time
+
+#### Welch's t-tests - School grades and gender groups
+- Welch's t-test of single-interest differentiation comparing *gender groups in each school grades*
+- Comparisons were performed in the following order: F-M
+
+```{r}
+#  5th grade
+t.test(holl_R_rlv3 ~ gender, data = dt_hol_final_5)
+cohensD(holl_R_rlv3 ~ gender, data = dt_hol_final_5) # 0.49
+
+t.test(holl_I_rlv3 ~ gender, data = dt_hol_final_5)
+cohensD(holl_I_rlv3 ~ gender, data = dt_hol_final_5) # 0.0798903
+
+t.test(holl_A_rlv3 ~ gender, data = dt_hol_final_5)
+cohensD(holl_A_rlv3 ~ gender, data = dt_hol_final_5) # 0.4791033
+
+t.test(holl_S_rlv3 ~ gender, data = dt_hol_final_5)
+cohensD(holl_S_rlv3 ~ gender, data = dt_hol_final_5) # 0.1180712
+
+t.test(holl_E_rlv3 ~ gender, data = dt_hol_final_5)
+cohensD(holl_E_rlv3 ~ gender, data = dt_hol_final_5) # 0.1156747
+
+t.test(holl_C_rlv3 ~ gender, data = dt_hol_final_5)
+cohensD(holl_C_rlv3 ~ gender, data = dt_hol_final_5) # 0.1375115
+
+#  9th grade
+t.test(holl_R_rlv3 ~ gender, data = dt_hol_final_9)
+cohensD(holl_R_rlv3 ~ gender, data = dt_hol_final_9) # 0.91
+
+t.test(holl_I_rlv3 ~ gender, data = dt_hol_final_9)
+cohensD(holl_I_rlv3 ~ gender, data = dt_hol_final_9) # 0.18
+
+t.test(holl_A_rlv3 ~ gender, data = dt_hol_final_9)
+cohensD(holl_A_rlv3 ~ gender, data = dt_hol_final_9) # 0.54
+
+t.test(holl_S_rlv3 ~ gender, data = dt_hol_final_9)
+cohensD(holl_S_rlv3 ~ gender, data = dt_hol_final_9) # 0.39
+
+t.test(holl_E_rlv3 ~ gender, data = dt_hol_final_9)
+cohensD(holl_E_rlv3 ~ gender, data = dt_hol_final_9) # 0.19
+
+t.test(holl_C_rlv3 ~ gender, data = dt_hol_final_9)
+cohensD(holl_C_rlv3 ~ gender, data = dt_hol_final_9) # 0.10
+
+#  12th grade
+t.test(holl_R_rlv3 ~ gender, data = dt_hol_final_12)
+cohensD(holl_R_rlv3 ~ gender, data = dt_hol_final_12) # 1.05
+
+t.test(holl_I_rlv3 ~ gender, data = dt_hol_final_12)
+cohensD(holl_I_rlv3 ~ gender, data = dt_hol_final_12) # 0.08
+
+t.test(holl_A_rlv3 ~ gender, data = dt_hol_final_12)
+cohensD(holl_A_rlv3 ~ gender, data = dt_hol_final_12) # 0.45
+
+t.test(holl_S_rlv3 ~ gender, data = dt_hol_final_12)
+cohensD(holl_S_rlv3 ~ gender, data = dt_hol_final_12) # 0.67
+
+t.test(holl_E_rlv3 ~ gender, data = dt_hol_final_12)
+cohensD(holl_E_rlv3 ~ gender, data = dt_hol_final_12) # 0.12
+
+t.test(holl_C_rlv3 ~ gender, data = dt_hol_final_12)
+cohensD(holl_C_rlv3 ~ gender, data = dt_hol_final_12) # 0.01
+
+```
+
+### Vocational interests versus social-emotional skills 
+
+#### Correlations between RIASEC and social-emotional skills domains
+```{r}
+# RIASEC and SEMS vector with variables names
+
+sems_riasec_names <- c("A", "C", "E", "N", "O",
+                        "holl_R", "holl_I", "holl_A", "holl_S", "holl_E", "holl_C")
+                        
+# 5TH GRADE
+sems_riasec_cor_5 <- cor(dt_hol_final_5[,sems_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_riasec_cor_5, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+
+# 9TH GRADE
+sems_riasec_cor_9 <- cor(dt_hol_final_5[,sems_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_riasec_cor_9, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+# 12TH GRADE
+sems_riasec_cor_12 <- cor(dt_hol_final_5[,sems_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_riasec_cor_12, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+```
+
+#### Congruence estimation
+
+```{r}
+### IMPORT CORRELATION TABLES FROM SOTO ET AL. (2021) IN R
+
+### TABLES WERE NAMED AS RIASEC_SEMS_Soto_cong, RIASEC_SEMS_5th_cong (5th graders congruence), RIASEC_SEMS_9th_cong (9th graders congruence) and RIASEC_SEMS_12th_cong (12th graders congruence)
+
+### CORRELATION MATRICES FOR RIASEC AND SEMS 
+sems_riasec_cor_5_cong <- cor(
+ dt_hol_final_5[,c(
+  "O", 
+  "C", 
+  "E", 
+  "A", 
+  "N"
+ )], 
+ dt_hol_final_5[,c(
+  "holl_R", 
+  "holl_I", 
+  "holl_A", 
+  "holl_S", 
+  "holl_E", 
+  "holl_C"
+ )], 
+ use="pairwise.complete.obs"
+)
+
+sems_riasec_cor_9_cong <- cor(
+ dt_hol_final_9[,c(
+  "O", 
+  "C", 
+  "E", 
+  "A", 
+  "N"
+ )], 
+ dt_hol_final_9[,c(
+  "holl_R", 
+  "holl_I", 
+  "holl_A", 
+  "holl_S", 
+  "holl_E", 
+  "holl_C"
+ )], 
+ use="pairwise.complete.obs"
+)
+
+sems_riasec_cor_11_cong <- cor(
+ dt_hol_final_11[,c(
+  "O", 
+  "C", 
+  "E", 
+  "A", 
+  "N"
+ )], 
+ dt_hol_final_11[,c(
+  "holl_R", 
+  "holl_I", 
+  "holl_A", 
+  "holl_S", 
+  "holl_E", 
+  "holl_C"
+ )], 
+ use="pairwise.complete.obs"
+)
+
+### SEMS CONGRUENCE
+cong_5th_Soto <- fa.congruence(sems_riasec_cor_5_cong, RIASEC_SEMS_Soto, structure = FALSE)
+
+cong_9th_Soto <- fa.congruence(sems_riasec_cor_9_cong, RIASEC_SEMS_Soto, structure = FALSE)
+
+cong_11th_Soto <- fa.congruence(sems_riasec_cor_11_cong, RIASEC_SEMS_Soto, structure = FALSE)
+
+cong_5th_9th <- fa.congruence(sems_riasec_cor_5_cong, sems_riasec_cor_9_cong, structure = FALSE)
+
+cong_5th_11th<- fa.congruence(sems_riasec_cor_5_cong, sems_riasec_cor_11_cong, structure = FALSE)
+
+cong_9th_11th <- fa.congruence(sems_riasec_cor_9_cong, sems_riasec_cor_11_cong, structure = FALSE)
+
+
+### OVERALL CONGRUENCE
+cong_5th_Soto_g <- fa.congruence(RIASEC_SEMS_5th_cong, RIASEC_SEMS_Soto_cong, structure = FALSE)
+
+cong_9th_Soto_g <- fa.congruence(RIASEC_SEMS_9th_cong, RIASEC_SEMS_Soto_cong, structure = FALSE)
+
+cong_11th_Soto_g <- fa.congruence(RIASEC_SEMS_12th_cong, RIASEC_SEMS_Soto_cong, structure = FALSE)
+
+cong_5th_9th_g <- fa.congruence(RIASEC_SEMS_5th_cong, RIASEC_SEMS_9th_cong, structure = FALSE)
+
+cong_5th_11th_g <- fa.congruence(RIASEC_SEMS_5th_cong, RIASEC_SEMS_12th_cong, structure = FALSE)
+
+cong_9th_11th_g <- fa.congruence(RIASEC_SEMS_9th_cong, RIASEC_SEMS_12th_cong, structure = FALSE)
+```
+
+
+### Interest elevation and overall differentiation and level of skills	 
+
+#### Correlations between Interest elevation and Overall differentiation and social-emotional skills domains
+
+```{r}
+# Elevation, Diff and SEMS vector with variables names
+                        
+sems_elev_diff_names <- c("A", "C", "E", "N", "O",
+                        "holland_Difer7", "holland_Elev")
+                        
+# 5TH GRADE
+sems_elev_diff_cor_5 <- cor(dt_hol_final_5[,sems_elev_diff_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_elev_diff_cor_5, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+
+# 9TH GRADE
+sems_elev_diff_cor_9 <- cor(dt_hol_final_5[,sems_elev_diff_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_elev_diff_cor_9, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+# 12TH GRADE
+sems_elev_diff_cor_12 <- cor(dt_hol_final_5[,sems_elev_diff_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_elev_diff_cor_12, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+```
+
+
+### Single-interest-skill-differentiation hypothesis 
+
+#### Correlations between skills domains and vocational interests 
+
+```{r}
+# RIASEC and SEMS vector with variables names
+
+sems_riasec_names <- c("A", "C", "E", "N", "O",
+                        "holl_R", "holl_I", "holl_A", "holl_S", "holl_E", "holl_C")
+                        
+# 5TH GRADE
+sems_riasec_cor_5 <- cor(dt_hol_final_5[,sems_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_riasec_cor_5, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+
+# 9TH GRADE
+sems_riasec_cor_9 <- cor(dt_hol_final_5[,sems_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_riasec_cor_9, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+# 12TH GRADE
+sems_riasec_cor_12 <- cor(dt_hol_final_5[,sems_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_riasec_cor_12, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+```
+
+#### Correlations between skills domains and single-differentiated interests 
+
+```{r}
+sems_relatv_riasec_names <- c("A", "C", "E", "N", "O",
+                        "holl_R_rlv3", "holl_I_rlv3", "holl_A_rlv3", "holl_S_rlv3",
+                        "holl_E_rlv3", "holl_C_rlv3")
+
+# 5TH GRADE
+sems_relatv_cor_5 <- cor(dt_hol_final_5[,sems_relatv_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_relatv_cor_5, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+
+# 9TH GRADE
+sems_relatv_cor_9 <- cor(dt_hol_final_5[,sems_relatv_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_relatv_cor_9, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+
+# 12TH GRADE
+sems_relatv_cor_12 <- cor(dt_hol_final_5[,sems_relatv_riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+corrplot(sems_relatv_cor_12, method="color", 
+         number.cex = 0.7, 
+         addCoef.col = "black", 
+         tl.col="black", tl.srt=45,
+         diag=TRUE)
+```
+
+### Circularity test 
+
+- Figure 1 - Hexagons representations by school grade
+* Domain level
+* Pearson correlations
+* N ~ 55578
+
+#### 5th grade
+```{r include= FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+# Create vector with RIASEC variables names
+riasec_names <- c("holl_R", "holl_I", "holl_A", "holl_S", "holl_E", "holl_C"
+                        )
+
+riasec_cor_5 <- cor(dt_hol_final_5[,riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+# Compute circularity test
+riasec_circ_5 <- Circ_emp(55578, riasec_cor_5, konstrukt=c("R","I","A","S","E","C"), 
+          showOutput=TRUE, Mplus_command="Mplus")
+
+riasec_circ_5
+```
+
+#### 9th grade
+```{r include= FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+# Create vector with RIASEC variables names
+riasec_names <- c("holl_R", "holl_I", "holl_A", "holl_S", "holl_E", "holl_C"
+                        )
+
+riasec_cor_9 <- cor(dt_hol_final_9[,riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+# Compute circularity test
+riasec_circ_9 <- Circ_emp(82019, riasec_cor_9, konstrukt=c("R","I","A","S","E","C"), 
+          showOutput=TRUE, Mplus_command="Mplus")
+
+riasec_circ_9
+```
+
+#### 12th grade
+```{r include= FALSE, echo=FALSE, warning=FALSE, message=FALSE}
+# Create vector with RIASEC variables names
+riasec_names <- c("holl_R", "holl_I", "holl_A", "holl_S", "holl_E", "holl_C"
+                        )
+
+riasec_cor_12 <- cor(dt_hol_final_12[,riasec_names], 
+                             use="pairwise.complete.obs"
+                        )
+
+# Compute circularity test
+riasec_circ_12 <- Circ_emp(70874, riasec_cor_12, konstrukt=c("R","I","A","S","E","C"), 
+          showOutput=TRUE, Mplus_command="Mplus")
+
+riasec_circ_12
+```
+
